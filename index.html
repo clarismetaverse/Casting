@@ -6,38 +6,79 @@
     <title>Braun Casting Application</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
+
   <body>
     <main class="casting-form" aria-live="polite">
       <h1>Braun Casting Application</h1>
 
-      <input id="firstName" name="firstName" placeholder="First name" autocomplete="given-name" />
-      <input id="lastName" name="lastName" placeholder="Last name" autocomplete="family-name" />
-      <input id="email" name="email" type="email" placeholder="Email" autocomplete="email" />
+      <!-- Stepper / Progress -->
+      <section class="stepper" aria-label="Application progress">
+        <div class="stepper-top">
+          <p class="stepper-label" id="stepLabel">
+            Step <strong id="stepNow">1</strong>/<strong id="stepTotal">3</strong>
+            <span style="margin-left: 8px">•</span>
+            <span id="stepName">Personal details</span>
+          </p>
+          <p class="stepper-label"><strong id="progressText">0%</strong></p>
+        </div>
+        <div class="progress-wrap" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="Upload progress">
+          <div class="progress-bar" id="progressBar"></div>
+        </div>
+      </section>
 
-      <label class="dropzone" id="polaDropzone" for="polaFile">
-        <span class="dropzone-title">Upload Polaroid</span>
-        <span class="dropzone-hint">Drag & drop image or click to browse</span>
-        <input type="file" id="polaFile" accept="image/*" />
+      <!-- Personal details -->
+      <section aria-label="Personal details" style="display: grid; gap: 12px">
+        <input id="firstName" name="firstName" placeholder="First name" autocomplete="given-name" />
+        <input id="lastName" name="lastName" placeholder="Last name" autocomplete="family-name" />
+        <input id="email" name="email" type="email" placeholder="Email" autocomplete="email" />
+      </section>
+
+      <!-- Uploads -->
+      <section aria-label="Uploads" style="display: grid; gap: 14px">
+        <!-- Polaroid: FRONT -->
+        <label class="dropzone" id="polaFrontDropzone" for="polaFrontFile" data-kind="pola_front">
+          <span class="dropzone-title">Polaroid — Front</span>
+          <span class="dropzone-hint">Natural light, neutral background, no filters.</span>
+          <input type="file" id="polaFrontFile" accept="image/jpeg,image/jpg,image/png,image/heic,image/heif" />
+        </label>
+        <div class="preview" id="polaFrontPreview"></div>
+
+        <!-- Polaroid: SIDE -->
+        <label class="dropzone" id="polaSideDropzone" for="polaSideFile" data-kind="pola_side">
+          <span class="dropzone-title">Polaroid — Side</span>
+          <span class="dropzone-hint">Profile shot, hair away from face if possible.</span>
+          <input type="file" id="polaSideFile" accept="image/jpeg,image/jpg,image/png,image/heic,image/heif" />
+        </label>
+        <div class="preview" id="polaSidePreview"></div>
+
+        <!-- Polaroid: FULL -->
+        <label class="dropzone" id="polaFullDropzone" for="polaFullFile" data-kind="pola_full">
+          <span class="dropzone-title">Polaroid — Full body</span>
+          <span class="dropzone-hint">Head-to-toe, fitted clothes preferred, no filters.</span>
+          <input type="file" id="polaFullFile" accept="image/jpeg,image/jpg,image/png,image/heic,image/heif" />
+        </label>
+        <div class="preview" id="polaFullPreview"></div>
+
+        <!-- Video: NO MAKEUP -->
+        <label class="dropzone" id="videoNoMakeupDropzone" for="videoNoMakeupFile" data-kind="video_no_makeup">
+          <span class="dropzone-title">Video — No makeup</span>
+          <span class="dropzone-hint">10–20s, say your name + age. Good light, steady shot.</span>
+          <input type="file" id="videoNoMakeupFile" accept="video/mp4,video/quicktime,video/webm,video/x-m4v" />
+        </label>
+        <div class="preview" id="videoNoMakeupPreview"></div>
+      </section>
+
+      <!-- GDPR thick toggle -->
+      <label class="gdpr" id="gdprBlock">
+        <input id="gdprConsent" name="gdprConsent" type="checkbox" />
+        <span class="gdpr-toggle" aria-hidden="true"></span>
+        <span class="gdpr-copy">
+          <span class="gdpr-title">GDPR consent</span>
+          <span class="gdpr-sub">
+            I consent to the processing of my data for casting purposes and communications related to this application.
+          </span>
+        </span>
       </label>
-      <div class="preview" id="polaPreview"></div>
 
-      <label class="dropzone" id="videoDropzone" for="videoFile">
-        <span class="dropzone-title">Upload Video</span>
-        <span class="dropzone-hint">Drag & drop video or click to browse</span>
-        <input type="file" id="videoFile" accept="video/*" />
-      </label>
-      <div class="preview" id="videoPreview"></div>
-
-      <div class="progress-wrap">
-        <div class="progress-bar" id="progressBar"></div>
-      </div>
-      <p class="progress-text" id="progressText">0%</p>
-
-      <button id="applyBtn" type="button">Submit Application</button>
-
-      <p id="status" class="status"></p>
-    </main>
-
-    <script src="app.js"></script>
-  </body>
-</html>
+      <!-- Actions -->
+      <div class="actions">
