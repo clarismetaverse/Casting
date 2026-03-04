@@ -1,48 +1,100 @@
 const API = "https://xbut-eryu-hhsg.f2.xano.io/api:-v4TBDCl";
+
 const MAX_IMAGE_SIZE = 15 * 1024 * 1024;
 const MAX_VIDEO_SIZE = 500 * 1024 * 1024;
 
-const state = {
-  pola: null,
-  video: null,
-};
-
+// --- UI nodes ---
 const statusNode = document.getElementById("status");
 const progressBar = document.getElementById("progressBar");
 const progressText = document.getElementById("progressText");
 const applyBtn = document.getElementById("applyBtn");
+const resetBtn = document.getElementById("resetBtn");
 
-setupDropzone({
-  inputId: "polaFile",
-  dropzoneId: "polaDropzone",
-  previewId: "polaPreview",
-  stateKey: "pola",
-  typeLabel: "Polaroid",
-  maxSize: MAX_IMAGE_SIZE,
-});
+const stepNowNode = document.getElementById("stepNow");
+const stepTotalNode = document.getElementById("stepTotal");
+const stepNameNode = document.getElementById("stepName");
 
-setupDropzone({
-  inputId: "videoFile",
-  dropzoneId: "videoDropzone",
-  previewId: "videoPreview",
-  stateKey: "video",
-  typeLabel: "Video",
-  maxSize: MAX_VIDEO_SIZE,
-});
+const gdprConsent = document.getElementById("gdprConsent");
+const gdprBlock = document.getElementById("gdprBlock");
 
+// --- helpers: read optional user_turbo_id from URL ---
+function getQueryInt(name) {
+  const v = new URLSearchParams(window.location.search).get(name);
+  if (!v) return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+// --- State: per enum ---
+const state = {
+  pola_front: null,
+  pola_side: null,
+  pola_full: null,
+  video_no_makeup: null,
+};
+
+const uploadsConfig = [
+  {
+    key: "pola_front",
+    inputId: "polaFrontFile",
+    dropzoneId: "polaFrontDropzone",
+    previewId: "polaFrontPreview",
+    typeLabel: "Polaroid — Front",
+    maxSize: MAX_IMAGE_SIZE,
+    kind: "image",
+  },
+  {
+    key: "pola_side",
+    inputId: "polaSideFile",
+    dropzoneId: "polaSideDropzone",
+    previewId: "polaSidePreview",
+    typeLabel: "Polaroid — Side",
+    maxSize: MAX_IMAGE_SIZE,
+    kind: "image",
+  },
+  {
+    key: "pola_full",
+    inputId: "polaFullFile",
+    dropzoneId: "polaFullDropzone",
+    previewId: "polaFullPreview",
+    typeLabel: "Polaroid — Full body",
+    maxSize: MAX_IMAGE_SIZE,
+    kind: "image",
+  },
+  {
+    key: "video_no_makeup",
+    inputId: "videoNoMakeupFile",
+    dropzoneId: "videoNoMakeupDropzone",
+    previewId: "videoNoMakeupPreview",
+    typeLabel: "Video — No makeup",
+    maxSize: MAX_VIDEO_SIZE,
+    kind: "video",
+  },
+];
+
+// setup all dropzones
+uploadsConfig.forEach(setupDropzone);
+
+// events
 applyBtn.addEventListener("click", submitApplication);
+resetBtn?.addEventListener("click", resetForm);
 
-function setupDropzone({ inputId, dropzoneId, previewId, stateKey, typeLabel, maxSize }) {
+// GDPR UX: click on whole block toggles checkbox already by label;
+// here we just remove error state when checked
+gdprConsent?.addEventListener("change", () => {
+  gdprBlock?.classList.remove("invalid");
+});
+
+function setupDropzone({ inputId, dropzoneId, previewId, key, typeLabel, maxSize }) {
   const input = document.getElementById(inputId);
   const dropzone = document.getElementById(dropzoneId);
   const preview = document.getElementById(previewId);
 
-  input.addEventListener("change", () => {
-    if (!input.files?.[0]) {
-      return;
-    }
+  if (!input || !dropzone || !preview) return;
 
-    handleSelectedFile(input.files[0], { stateKey, preview, typeLabel, maxSize, input });
+  input.addEventListener("change", () => {
+    if (!input.files?.[0]) return;
+    handleSelectedFile(input.files[0], { key, preview, typeLabel, maxSize, input });
   });
 
   ["dragenter", "dragover"].forEach((eventName) => {
@@ -60,144 +112,31 @@ function setupDropzone({ inputId, dropzoneId, previewId, stateKey, typeLabel, ma
   });
 
   dropzone.addEventListener("drop", (event) => {
-    const [file] = event.dataTransfer.files;
-    if (!file) {
-      return;
-    }
-
-    handleSelectedFile(file, { stateKey, preview, typeLabel, maxSize, input });
+    const [file] = event.dataTransfer.files || [];
+    if (!file) return;
+    handleSelectedFile(file, { key, preview, typeLabel, maxSize, input });
   });
 }
 
-function handleSelectedFile(file, { stateKey, preview, typeLabel, maxSize, input }) {
+function handleSelectedFile(file, { key, preview, typeLabel, maxSize, input }) {
   if (file.size > maxSize) {
-    const sizeLimit = formatSize(maxSize);
-    showStatus(`${typeLabel} exceeds size limit (${sizeLimit}).`, true);
+    showStatus(`${typeLabel} exceeds size limit (${formatSize(maxSize)}).`, true);
     input.value = "";
     return;
   }
 
-  state[stateKey] = file;
+  // Never block HEIC/MOV, but warn user (soft)
+  const warn = detectSoftFormatWarning(file);
+  if (warn) {
+    showStatus(warn);
+  } else {
+    showStatus(`${typeLabel} ready.`);
+  }
+
+  state[key] = file;
   renderPreview(file, preview, typeLabel);
-  showStatus(`${typeLabel} ready to upload.`);
 }
 
-function renderPreview(file, previewNode, typeLabel) {
-  const objectUrl = URL.createObjectURL(file);
-  const isImage = file.type.startsWith("image/");
-  const mediaTag = isImage
-    ? `<img src="${objectUrl}" alt="${typeLabel} preview" />`
-    : `<video src="${objectUrl}" aria-label="${typeLabel} preview" controls muted></video>`;
-
-  previewNode.innerHTML = `
-    <div class="file-card">
-      ${mediaTag}
-      <div class="file-meta">
-        <strong>${file.name}</strong>
-        <span>${formatSize(file.size)}</span>
-      </div>
-    </div>
-  `;
-}
-
-async function submitApplication() {
-  const firstName = document.getElementById("firstName").value.trim();
-  const lastName = document.getElementById("lastName").value.trim();
-  const email = document.getElementById("email").value.trim();
-
-  if (!firstName || !lastName || !email) {
-    showStatus("Please fill in first name, last name, and email.", true);
-    return;
-  }
-
-  try {
-    applyBtn.disabled = true;
-    setProgress(5, "5%");
-    showStatus("Creating application...");
-
-    const res = await fetch(`${API}/Apply`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        first_name: firstName,
-        last_name: lastName,
-        email,
-        casting_id: 3,
-        user_turbo_id: 6684,
-        status: "NEW",
-        GDPR_consent: true,
-      }),
-    });
-
-    if (!res.ok) {
-      throw new Error(`Apply failed: ${res.status}`);
-    }
-
-    const app = await res.json();
-    const applicationId = app.id;
-
-    setProgress(30, "30%");
-    showStatus("Application created, uploading files...");
-
-    const uploads = [];
-    if (state.pola) {
-      uploads.push(uploadApplicationFile(applicationId, "pola", state.pola, 60));
-    }
-    if (state.video) {
-      uploads.push(uploadApplicationFile(applicationId, "video", state.video, 90));
-    }
-
-    await Promise.all(uploads);
-
-    setProgress(100, "100%");
-    showStatus("Application submitted successfully.");
-  } catch (error) {
-    console.error(error);
-    showStatus("Error while submitting application. Please retry.", true);
-  } finally {
-    applyBtn.disabled = false;
-  }
-}
-
-async function uploadApplicationFile(applicationId, fileType, file, completionPercent) {
-  const form = new FormData();
-  form.append("application_id", applicationId);
-  form.append("file_type", fileType);
-  form.append("file", file);
-
-  const response = await fetch(`${API}/upload_application_file`, {
-    method: "POST",
-    body: form,
-  });
-
-  if (!response.ok) {
-    throw new Error(`${fileType} upload failed: ${response.status}`);
-  }
-
-  setProgress(completionPercent, `${completionPercent}%`);
-}
-
-function showStatus(message, isError = false) {
-  statusNode.textContent = message;
-  statusNode.classList.toggle("error", isError);
-}
-
-function setProgress(value, text) {
-  progressBar.style.width = `${value}%`;
-  progressText.textContent = text;
-}
-
-function formatSize(bytes) {
-  const units = ["B", "KB", "MB", "GB"];
-  let size = bytes;
-  let index = 0;
-
-  while (size >= 1024 && index < units.length - 1) {
-    size /= 1024;
-    index += 1;
-  }
-
-  return `${size.toFixed(index === 0 ? 0 : 1)} ${units[index]}`;
-}
+function detectSoftFormatWarning(file) {
+  const name = (file.name || "").toLowerCase();
+  const type = (file.type || "").toLowerCase
