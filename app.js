@@ -12,6 +12,7 @@ const applyBtn =
   document.getElementById("submitBtn") ||
   document.querySelector("button[type='button']");
 const resetBtn = document.getElementById("resetBtn");
+const submitAnotherBtn = document.getElementById("submitAnother");
 
 const stepNowNode = document.getElementById("stepNow");
 const stepTotalNode = document.getElementById("stepTotal");
@@ -122,6 +123,9 @@ if (applyBtn) {
   showStatus("Submit button not found. Please refresh or contact support.", true);
 }
 resetBtn?.addEventListener("click", resetForm);
+submitAnotherBtn?.addEventListener("click", () => {
+  location.reload();
+});
 
 // GDPR UX: click on whole block toggles checkbox already by label;
 // here we just remove error state when checked
@@ -354,11 +358,7 @@ async function submitApplication() {
     await Promise.all(uploads);
 
     setProgress(100, "100%");
-    showStatus("✅ Upload completed! We received your application.");
-
-    setTimeout(() => {
-      resetFormUI();
-    }, 1200);
+    showSuccessScreen();
   } catch (error) {
     const msg = String(error?.message || error || "Unknown upload error");
     // PATCH: keep detailed diagnostics in console while showing friendly UI copy
@@ -410,6 +410,20 @@ async function uploadApplicationFile(applicationId, fileType, file) {
     }
     throw error;
   }
+}
+
+
+function showSuccessScreen() {
+  const form = document.querySelector(".casting-form");
+  const success = document.getElementById("successScreen");
+
+  if (!form || !success) return;
+
+  Array.from(form.children).forEach((el) => {
+    if (el.id !== "successScreen") el.style.display = "none";
+  });
+
+  success.classList.remove("hidden");
 }
 
 function resetFormUI() {
