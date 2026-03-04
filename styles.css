@@ -1,0 +1,155 @@
+:root {
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: linear-gradient(180deg, #f7f7f7 0%, #efefef 100%);
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.casting-form {
+  width: min(100%, 540px);
+  margin: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  background: #fff;
+  border-radius: 16px;
+  padding: 28px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.08);
+}
+
+h1 {
+  margin: 0 0 6px;
+  font-size: 1.6rem;
+}
+
+input[type="text"],
+input[type="email"],
+input:not([type]) {
+  width: 100%;
+  border: 1px solid #d7d7d7;
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 1rem;
+}
+
+.dropzone {
+  border: 2px dashed #c8c8c8;
+  padding: 24px;
+  text-align: center;
+  cursor: pointer;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.dropzone:hover,
+.dropzone.dragging {
+  border-color: #111;
+  background: #fafafa;
+}
+
+.dropzone input {
+  display: none;
+}
+
+.dropzone-title {
+  font-weight: 600;
+}
+
+.dropzone-hint {
+  font-size: 0.9rem;
+  color: #686868;
+}
+
+.preview {
+  display: grid;
+  gap: 10px;
+}
+
+.file-card {
+  border: 1px solid #e1e1e1;
+  border-radius: 10px;
+  padding: 10px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.file-card img,
+.file-card video {
+  width: 74px;
+  height: 74px;
+  object-fit: cover;
+  border-radius: 8px;
+  background: #f0f0f0;
+}
+
+.file-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.9rem;
+}
+
+.progress-wrap {
+  width: 100%;
+  height: 10px;
+  background: #ebebeb;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.progress-bar {
+  height: 100%;
+  width: 0;
+  background: #111;
+  transition: width 0.2s ease;
+}
+
+.progress-text {
+  margin: 0;
+  color: #555;
+  font-size: 0.88rem;
+}
+
+button {
+  padding: 14px;
+  border: none;
+  background: #000;
+  color: #fff;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+button:hover {
+  opacity: 0.86;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.status {
+  margin: 0;
+  min-height: 20px;
+  color: #222;
+}
+
+.status.error {
+  color: #b00020;
+}
