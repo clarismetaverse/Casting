@@ -6,8 +6,11 @@ const MAX_VIDEO_SIZE = 500 * 1024 * 1024;
 // --- UI nodes ---
 const statusNode = document.getElementById("status");
 const progressBar = document.getElementById("progressBar");
-const progressText = document.getElementById("progressText");
-const applyBtn = document.getElementById("applyBtn");
+const progressText = document.getElementById("progressText") || document.getElementById("progressLabel");
+const applyBtn =
+  document.getElementById("applyBtn") ||
+  document.getElementById("submitBtn") ||
+  document.querySelector("button[type='button']");
 const resetBtn = document.getElementById("resetBtn");
 
 const stepNowNode = document.getElementById("stepNow");
@@ -16,6 +19,19 @@ const stepNameNode = document.getElementById("stepName");
 
 const gdprConsent = document.getElementById("gdprConsent");
 const gdprBlock = document.getElementById("gdprBlock");
+
+// PATCH: startup sanity logs for ID mismatch debugging
+console.log("app.js loaded ✅");
+console.log("[sanity] applyBtn:", !!applyBtn);
+console.log("[sanity] progressBar:", !!progressBar);
+console.log("[sanity] progressText/progressLabel:", !!progressText);
+console.log("[sanity] gdprConsent:", !!gdprConsent);
+console.log("[sanity] 4-upload inputs:", {
+  polaFrontFile: !!document.getElementById("polaFrontFile"),
+  polaSideFile: !!document.getElementById("polaSideFile"),
+  polaFullFile: !!document.getElementById("polaFullFile"),
+  videoNoMakeupFile: !!document.getElementById("videoNoMakeupFile"),
+});
 
 // --- helpers: read optional user_turbo_id from URL ---
 function getQueryInt(name) {
@@ -33,7 +49,7 @@ const state = {
   video_no_makeup: null,
 };
 
-const uploadsConfig = [
+const uploadsConfigNew = [
   {
     key: "pola_front",
     inputId: "polaFrontFile",
@@ -72,11 +88,39 @@ const uploadsConfig = [
   },
 ];
 
+const uploadsConfigOld = [
+  {
+    key: "pola_front",
+    inputId: "polaFile",
+    dropzoneId: "polaDropzone",
+    previewId: "polaPreview",
+    typeLabel: "Polaroid",
+    maxSize: MAX_IMAGE_SIZE,
+    kind: "image",
+  },
+  {
+    key: "video_no_makeup",
+    inputId: "videoFile",
+    dropzoneId: "videoDropzone",
+    previewId: "videoPreview",
+    typeLabel: "Video",
+    maxSize: MAX_VIDEO_SIZE,
+    kind: "video",
+  },
+];
+
+const hasNewUploadMarkup = uploadsConfigNew.some(({ inputId }) => document.getElementById(inputId));
+const uploadsConfig = hasNewUploadMarkup ? uploadsConfigNew : uploadsConfigOld;
+
 // setup all dropzones
 uploadsConfig.forEach(setupDropzone);
 
 // events
-applyBtn.addEventListener("click", submitApplication);
+if (applyBtn) {
+  applyBtn.addEventListener("click", submitApplication);
+} else {
+  showStatus("Submit button not found. Please refresh or contact support.", true);
+}
 resetBtn?.addEventListener("click", resetForm);
 
 // GDPR UX: click on whole block toggles checkbox already by label;
@@ -139,4 +183,188 @@ function handleSelectedFile(file, { key, preview, typeLabel, maxSize, input }) {
 
 function detectSoftFormatWarning(file) {
   const name = (file.name || "").toLowerCase();
-  const type = (file.type || "").toLowerCase
+  const type = (file.type || "").toLowerCase();
+  if (name.endsWith(".heic") || name.endsWith(".heif") || type.includes("heic") || type.includes("heif")) {
+    return "HEIC/HEIF selected. Upload is allowed; preview may be unavailable in some browsers.";
+  }
+  if (name.endsWith(".mov") || type.includes("quicktime")) {
+    return "MOV selected. Upload is allowed; preview may be unavailable in some browsers.";
+  }
+  return "";
+}
+
+function renderPreview(file, preview, typeLabel) {
+  if (!preview) return;
+  preview.innerHTML = "";
+
+  const card = document.createElement("div");
+  card.className = "file-card";
+
+  const isVideo = file.type.startsWith("video/");
+  const media = document.createElement(isVideo ? "video" : "img");
+  if (isVideo) {
+    media.controls = true;
+    media.muted = true;
+  }
+
+  const meta = document.createElement("div");
+  meta.className = "file-meta";
+  meta.innerHTML = `<strong>${typeLabel}</strong><span>${file.name}</span><span>${formatSize(file.size)}</span>`;
+
+  const objectURL = URL.createObjectURL(file);
+  media.src = objectURL;
+  media.addEventListener("load", () => URL.revokeObjectURL(objectURL), { once: true });
+  media.addEventListener("loadeddata", () => URL.revokeObjectURL(objectURL), { once: true });
+  media.addEventListener("error", () => {
+    media.replaceWith(Object.assign(document.createElement("div"), { textContent: "Preview not available, file is ready to upload." }));
+  });
+
+  card.append(media, meta);
+  preview.appendChild(card);
+}
+
+function formatSize(bytes) {
+  if (!bytes) return "0 B";
+  const units = ["B", "KB", "MB", "GB"];
+  let size = bytes;
+  let unit = 0;
+  while (size >= 1024 && unit < units.length - 1) {
+    size /= 1024;
+    unit += 1;
+  }
+  return `${size.toFixed(size >= 10 || unit === 0 ? 0 : 1)} ${units[unit]}`;
+}
+
+function showStatus(message, isError = false) {
+  if (!statusNode) return;
+  statusNode.textContent = message;
+  statusNode.classList.toggle("error", !!isError);
+}
+
+function setProgress(percent, label) {
+  const normalized = Math.max(0, Math.min(100, Math.round(percent || 0)));
+  if (progressBar) {
+    progressBar.style.width = `${normalized}%`;
+    progressBar.parentElement?.setAttribute("aria-valuenow", String(normalized));
+  }
+  if (progressText) {
+    progressText.textContent = label || `${normalized}%`;
+  }
+}
+
+function getMissingRequiredConfigs() {
+  return uploadsConfig.filter(({ key }) => !state[key]);
+}
+
+async function submitApplication() {
+  if (!statusNode || !progressBar || !progressText) {
+    showStatus("Required UI nodes are missing (status/progress). Please check HTML IDs.", true);
+    return;
+  }
+
+  if (gdprConsent && !gdprConsent.checked) {
+    gdprBlock?.classList.add("invalid");
+    showStatus("Please accept GDPR consent before submitting.", true);
+    return;
+  }
+
+  const missing = getMissingRequiredConfigs();
+  if (missing.length > 0) {
+    showStatus(`Please add required files: ${missing.map((m) => m.typeLabel).join(", ")}.`, true);
+    return;
+  }
+
+  if (applyBtn) applyBtn.disabled = true;
+  setProgress(3, "Creating application...");
+
+  try {
+    const payload = {
+      first_name: document.getElementById("firstName")?.value?.trim() || "",
+      last_name: document.getElementById("lastName")?.value?.trim() || "",
+      email: document.getElementById("email")?.value?.trim() || "",
+    };
+
+    const userTurboId = getQueryInt("user_turbo_id");
+    if (userTurboId) payload.user_turbo_id = userTurboId;
+
+    const applyResponse = await fetch(`${API}/Apply`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!applyResponse.ok) throw new Error(`Failed to create application (${applyResponse.status}).`);
+
+    const applyData = await applyResponse.json();
+    const applicationId = applyData?.id || applyData?.application_id;
+    if (!applicationId) throw new Error("Application ID missing from API response.");
+
+    const filesToUpload = uploadsConfig.filter(({ key }) => state[key]).map((cfg) => ({ ...cfg, file: state[cfg.key] }));
+    let uploaded = 0;
+
+    for (const item of filesToUpload) {
+      await uploadFileWithProgress(applicationId, item.file, item.key, (filePercent) => {
+        const globalPercent = ((uploaded + filePercent / 100) / filesToUpload.length) * 100;
+        setProgress(globalPercent, `Uploading ${item.typeLabel} (${Math.round(filePercent)}%)`);
+      });
+      uploaded += 1;
+      setProgress((uploaded / filesToUpload.length) * 100, `${uploaded}/${filesToUpload.length} uploaded`);
+    }
+
+    setProgress(100, "Done");
+    showStatus("Application submitted successfully.");
+  } catch (error) {
+    const msg = String(error?.message || error || "Unknown upload error");
+    let hint = "";
+    if (/heic|heif/i.test(msg)) hint = " Export as JPG/PNG and retry.";
+    if (/quicktime|\.mov|mov/i.test(msg)) hint = " Export as MP4 and retry.";
+    showStatus(`Submission failed. ${msg}${hint}`, true);
+  } finally {
+    if (applyBtn) applyBtn.disabled = false;
+  }
+}
+
+function uploadFileWithProgress(applicationId, file, fileType, onProgress) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `${API}/upload_application_file`);
+
+    xhr.upload.onprogress = (event) => {
+      if (!event.lengthComputable) return;
+      onProgress?.((event.loaded / event.total) * 100);
+    };
+
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve();
+        return;
+      }
+      reject(new Error(xhr.responseText || `Upload failed (${xhr.status}) for ${fileType}.`));
+    };
+
+    xhr.onerror = () => reject(new Error(`Network error while uploading ${fileType}.`));
+
+    const form = new FormData();
+    form.append("application_id", String(applicationId));
+    form.append("file_type", fileType);
+    form.append("file", file);
+    xhr.send(form);
+  });
+}
+
+function resetForm() {
+  Object.keys(state).forEach((key) => {
+    state[key] = null;
+  });
+
+  uploadsConfig.forEach(({ inputId, previewId }) => {
+    const input = document.getElementById(inputId);
+    const preview = document.getElementById(previewId);
+    if (input) input.value = "";
+    if (preview) preview.innerHTML = "";
+  });
+
+  if (gdprConsent) gdprConsent.checked = false;
+  gdprBlock?.classList.remove("invalid");
+  setProgress(0, "0%");
+  showStatus("Form reset.");
+}
