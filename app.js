@@ -266,14 +266,6 @@ const FILE_TYPE_FALLBACKS = {
   video_no_makeup: "video",
 };
 
-// PATCH: lightweight upload labels per file
-const FILE_UPLOAD_LABELS = {
-  pola_front: "Uploading polaroid front...",
-  pola_side: "Uploading polaroid side...",
-  pola_full: "Uploading polaroid full...",
-  video_no_makeup: "Uploading video...",
-};
-
 function isEnumInputError(message) {
   const text = String(message || "");
   return /ERROR_CODE_INPUT_ERROR/i.test(text) || /not one of the allowable values/i.test(text);
@@ -303,6 +295,15 @@ async function submitApplication() {
     return;
   }
 
+  const firstName = document.getElementById("firstName")?.value?.trim() || "";
+  const lastName = document.getElementById("lastName")?.value?.trim() || "";
+  const email = document.getElementById("email")?.value?.trim() || "";
+
+  if (!firstName || !lastName || !email) {
+    showStatus("Please fill in first name, last name, and email.", true);
+    return;
+  }
+
   if (gdprConsent && !gdprConsent.checked) {
     gdprBlock?.classList.add("invalid");
     showStatus("Please accept GDPR consent before submitting.", true);
@@ -315,14 +316,17 @@ async function submitApplication() {
     return;
   }
 
-  if (applyBtn) applyBtn.disabled = true;
-  setProgress(3, "Creating application...");
+  if (applyBtn) {
+    applyBtn.disabled = true;
+    applyBtn.textContent = "Submitting...";
+  }
+  setProgress(5, "5%");
 
   try {
     const payload = {
-      first_name: document.getElementById("firstName")?.value?.trim() || "",
-      last_name: document.getElementById("lastName")?.value?.trim() || "",
-      email: document.getElementById("email")?.value?.trim() || "",
+      first_name: firstName,
+      last_name: lastName,
+      email,
     };
 
     const userTurboId = getQueryInt("user_turbo_id");
@@ -333,28 +337,28 @@ async function submitApplication() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
-    if (!applyResponse.ok) throw new Error(`Failed to create application (${applyResponse.status}).`);
-
-    const applyData = await applyResponse.json();
+    const applyData = await safeJson(applyResponse);
+    if (!applyResponse.ok) {
+      throw new Error(applyData?.message || `Failed to create application (${applyResponse.status}).`);
+    }
     const applicationId = applyData?.id || applyData?.application_id;
     if (!applicationId) throw new Error("Application ID missing from API response.");
 
     const filesToUpload = uploadsConfig.filter(({ key }) => state[key]).map((cfg) => ({ ...cfg, file: state[cfg.key] }));
-    let uploaded = 0;
+    setProgress(25, "25%");
+    showStatus("Application created. Uploading files...");
 
-    for (const item of filesToUpload) {
-      // PATCH: explicit per-file upload state message for UX clarity
-      showStatus(FILE_UPLOAD_LABELS[item.key] || `Uploading ${item.typeLabel}...`);
-      await uploadFileWithProgressWithFallback(applicationId, item.file, item.key, (filePercent) => {
-        const globalPercent = ((uploaded + filePercent / 100) / filesToUpload.length) * 100;
-        setProgress(globalPercent, `Uploading ${item.typeLabel} (${Math.round(filePercent)}%)`);
-      });
-      uploaded += 1;
-      setProgress((uploaded / filesToUpload.length) * 100, `${uploaded}/${filesToUpload.length} uploaded`);
-    }
+    const uploads = filesToUpload.map((item) => uploadApplicationFile(applicationId, item.key, item.file));
 
-    setProgress(100, "Done");
-    showStatus("Application submitted successfully.");
+    setProgress(55, "55%");
+    await Promise.all(uploads);
+
+    setProgress(100, "100%");
+    showStatus("✅ Upload completed! We received your application.");
+
+    setTimeout(() => {
+      resetFormUI();
+    }, 1200);
   } catch (error) {
     const msg = String(error?.message || error || "Unknown upload error");
     // PATCH: keep detailed diagnostics in console while showing friendly UI copy
@@ -362,7 +366,18 @@ async function submitApplication() {
     const hint = buildFormatRetryHint(msg);
     showStatus(`Upload failed. Please retry.${hint}`, true);
   } finally {
-    if (applyBtn) applyBtn.disabled = false;
+    if (applyBtn) {
+      applyBtn.disabled = false;
+      applyBtn.textContent = "Submit application";
+    }
+  }
+}
+
+async function safeJson(res) {
+  try {
+    return await res.json();
+  } catch {
+    return null;
   }
 }
 
@@ -376,6 +391,30 @@ function uploadFileWithProgressWithFallback(applicationId, file, initialFileType
     console.warn(`[upload_retry] Enum rejected "${initialFileType}", retrying as "${fallbackFileType}".`);
     return uploadFileWithProgress(applicationId, file, fallbackFileType, onProgress);
   });
+}
+
+async function uploadApplicationFile(applicationId, fileType, file) {
+  try {
+    await uploadFileWithProgressWithFallback(applicationId, file, fileType);
+  } catch (error) {
+    const message = String(error?.message || "");
+    let maybeErr = null;
+    try {
+      maybeErr = JSON.parse(message);
+    } catch {
+      maybeErr = null;
+    }
+
+    if (maybeErr?.message) {
+      throw new Error(maybeErr.message);
+    }
+    throw error;
+  }
+}
+
+function resetFormUI() {
+  resetForm();
+  showStatus("");
 }
 
 function uploadFileWithProgress(applicationId, file, fileType, onProgress) {
