@@ -20,8 +20,8 @@ const stepNameNode = document.getElementById("stepName");
 const gdprConsent = document.getElementById("gdprConsent");
 const gdprBlock = document.getElementById("gdprBlock");
 
-// PATCH: startup sanity logs for ID mismatch debugging
-console.log("app.js loaded ✅");
+// PATCH: startup safety diagnostics for critical nodes
+console.log("Casting form initialized");
 console.log("[sanity] applyBtn:", !!applyBtn);
 console.log("[sanity] progressBar:", !!progressBar);
 console.log("[sanity] progressText/progressLabel:", !!progressText);
@@ -216,7 +216,13 @@ function renderPreview(file, preview, typeLabel) {
   media.addEventListener("load", () => URL.revokeObjectURL(objectURL), { once: true });
   media.addEventListener("loadeddata", () => URL.revokeObjectURL(objectURL), { once: true });
   media.addEventListener("error", () => {
-    media.replaceWith(Object.assign(document.createElement("div"), { textContent: "Preview not available, file is ready to upload." }));
+    // PATCH: keep HEIC/MOV uploads valid even when local preview is not supported
+    media.replaceWith(
+      Object.assign(document.createElement("div"), {
+        className: "preview-fallback",
+        textContent: "Preview not available — file ready for upload.",
+      })
+    );
   });
 
   card.append(media, meta);
@@ -250,6 +256,27 @@ function setProgress(percent, label) {
   if (progressText) {
     progressText.textContent = label || `${normalized}%`;
   }
+}
+
+// PATCH: stable file type mapping + enum fallback mapping for Xano validation issues
+const FILE_TYPE_FALLBACKS = {
+  pola_front: "pola_full",
+  pola_side: "pola_side",
+  pola_full: "pola_full",
+  video_no_makeup: "video",
+};
+
+// PATCH: lightweight upload labels per file
+const FILE_UPLOAD_LABELS = {
+  pola_front: "Uploading polaroid front...",
+  pola_side: "Uploading polaroid side...",
+  pola_full: "Uploading polaroid full...",
+  video_no_makeup: "Uploading video...",
+};
+
+function isEnumInputError(message) {
+  const text = String(message || "");
+  return /ERROR_CODE_INPUT_ERROR/i.test(text) || /not one of the allowable values/i.test(text);
 }
 
 function getMissingRequiredConfigs() {
@@ -302,7 +329,9 @@ async function submitApplication() {
     let uploaded = 0;
 
     for (const item of filesToUpload) {
-      await uploadFileWithProgress(applicationId, item.file, item.key, (filePercent) => {
+      // PATCH: explicit per-file upload state message for UX clarity
+      showStatus(FILE_UPLOAD_LABELS[item.key] || `Uploading ${item.typeLabel}...`);
+      await uploadFileWithProgressWithFallback(applicationId, item.file, item.key, (filePercent) => {
         const globalPercent = ((uploaded + filePercent / 100) / filesToUpload.length) * 100;
         setProgress(globalPercent, `Uploading ${item.typeLabel} (${Math.round(filePercent)}%)`);
       });
@@ -314,13 +343,27 @@ async function submitApplication() {
     showStatus("Application submitted successfully.");
   } catch (error) {
     const msg = String(error?.message || error || "Unknown upload error");
+    // PATCH: keep detailed diagnostics in console while showing friendly UI copy
+    console.error("[upload_error]", error);
     let hint = "";
-    if (/heic|heif/i.test(msg)) hint = " Export as JPG/PNG and retry.";
-    if (/quicktime|\.mov|mov/i.test(msg)) hint = " Export as MP4 and retry.";
-    showStatus(`Submission failed. ${msg}${hint}`, true);
+    if (/heic|heif/i.test(msg)) hint = " HEIC files can be exported as JPG and retried.";
+    if (/quicktime|\.mov|mov/i.test(msg)) hint = " MOV files can be exported as MP4 and retried.";
+    showStatus(`Upload failed. Please retry.${hint}`, true);
   } finally {
     if (applyBtn) applyBtn.disabled = false;
   }
+}
+
+function uploadFileWithProgressWithFallback(applicationId, file, initialFileType, onProgress) {
+  // PATCH: upload with backend enum fallback retry
+  return uploadFileWithProgress(applicationId, file, initialFileType, onProgress).catch((error) => {
+    const fallbackFileType = FILE_TYPE_FALLBACKS[initialFileType] || initialFileType;
+    if (!isEnumInputError(error?.message) || fallbackFileType === initialFileType) {
+      throw error;
+    }
+    console.warn(`[upload_retry] Enum rejected "${initialFileType}", retrying as "${fallbackFileType}".`);
+    return uploadFileWithProgress(applicationId, file, fallbackFileType, onProgress);
+  });
 }
 
 function uploadFileWithProgress(applicationId, file, fileType, onProgress) {

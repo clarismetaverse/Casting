@@ -230,3 +230,13 @@ button:disabled {
   border-color: #b00020;
   background: #fff3f5;
 }
+
+/* PATCH: fallback preview text when browser cannot render HEIC/MOV thumbnail */
+.preview-fallback {
+  font-size: 0.88rem;
+  color: #555;
+  background: #f5f5f5;
+  border: 1px dashed #d0d0d0;
+  border-radius: 8px;
+  padding: 10px;
+}
