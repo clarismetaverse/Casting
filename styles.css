@@ -11,26 +11,32 @@ body {
   min-height: 100vh;
   font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   background: linear-gradient(180deg, #f7f7f7 0%, #efefef 100%);
-  display: grid;
-  place-items: center;
-  padding: 24px;
+  display: block;
+  padding: 12px;
 }
 
 .casting-form {
-  width: min(100%, 540px);
-  margin: auto;
+  width: 100%;
+  margin: 0 auto;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 12px;
   background: #fff;
-  border-radius: 16px;
-  padding: 28px;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.08);
+  border-radius: 14px;
+  padding: 16px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
 }
 
 h1 {
-  margin: 0 0 6px;
-  font-size: 1.6rem;
+  margin: 0 0 4px;
+  font-size: 1.25rem;
+  line-height: 1.3;
+}
+
+.form-section,
+.upload-section {
+  display: grid;
+  gap: 12px;
 }
 
 input[type="text"],
@@ -38,14 +44,15 @@ input[type="email"],
 input:not([type]) {
   width: 100%;
   border: 1px solid #d7d7d7;
-  border-radius: 10px;
-  padding: 12px 14px;
+  border-radius: 12px;
+  padding: 14px;
+  min-height: 48px;
   font-size: 1rem;
 }
 
 .dropzone {
   border: 2px dashed #c8c8c8;
-  padding: 24px;
+  padding: 16px;
   text-align: center;
   cursor: pointer;
   border-radius: 12px;
@@ -53,6 +60,8 @@ input:not([type]) {
   flex-direction: column;
   gap: 6px;
   transition: border-color 0.2s ease, background 0.2s ease;
+  min-height: 84px;
+  justify-content: center;
 }
 
 .dropzone:hover,
@@ -67,6 +76,7 @@ input:not([type]) {
 
 .dropzone-title {
   font-weight: 600;
+  font-size: 1rem;
 }
 
 .dropzone-hint {
@@ -83,15 +93,14 @@ input:not([type]) {
   border: 1px solid #e1e1e1;
   border-radius: 10px;
   padding: 10px;
-  display: flex;
-  gap: 10px;
-  align-items: center;
+  display: grid;
+  gap: 8px;
 }
 
 .file-card img,
 .file-card video {
-  width: 74px;
-  height: 74px;
+  width: 100%;
+  max-height: 190px;
   object-fit: cover;
   border-radius: 8px;
   background: #f0f0f0;
@@ -127,12 +136,14 @@ input:not([type]) {
 
 button {
   padding: 14px;
+  min-height: 48px;
   border: none;
   background: #000;
   color: #fff;
-  border-radius: 8px;
+  border-radius: 10px;
   cursor: pointer;
   font-weight: 600;
+  font-size: 1rem;
 }
 
 button:hover {
@@ -146,15 +157,15 @@ button:disabled {
 
 .status {
   margin: 0;
-  min-height: 20px;
+  min-height: 22px;
   color: #222;
+  font-size: 0.95rem;
 }
 
 .status.error {
   color: #b00020;
 }
 
-/* PATCH: missing styles for updated UI blocks */
 .stepper {
   display: grid;
   gap: 8px;
@@ -164,7 +175,7 @@ button:disabled {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 10px;
 }
 
 .stepper-label {
@@ -174,12 +185,8 @@ button:disabled {
 }
 
 .actions {
-  display: flex;
+  display: grid;
   gap: 10px;
-}
-
-.actions button {
-  flex: 1;
 }
 
 .gdpr {
@@ -231,7 +238,6 @@ button:disabled {
   background: #fff3f5;
 }
 
-/* PATCH: fallback preview text when browser cannot render HEIC/MOV thumbnail */
 .preview-fallback {
   font-size: 0.88rem;
   color: #555;
@@ -239,4 +245,38 @@ button:disabled {
   border: 1px dashed #d0d0d0;
   border-radius: 8px;
   padding: 10px;
+}
+
+@media (min-width: 680px) {
+  body {
+    display: grid;
+    place-items: center;
+    padding: 24px;
+  }
+
+  .casting-form {
+    width: min(100%, 620px);
+    border-radius: 16px;
+    padding: 24px;
+    gap: 14px;
+  }
+
+  h1 {
+    font-size: 1.6rem;
+  }
+
+  .file-card {
+    grid-template-columns: 90px 1fr;
+    align-items: center;
+  }
+
+  .file-card img,
+  .file-card video {
+    width: 90px;
+    height: 90px;
+  }
+
+  .actions {
+    grid-template-columns: 1fr 1fr;
+  }
 }
