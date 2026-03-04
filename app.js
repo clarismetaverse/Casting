@@ -279,6 +279,20 @@ function isEnumInputError(message) {
   return /ERROR_CODE_INPUT_ERROR/i.test(text) || /not one of the allowable values/i.test(text);
 }
 
+function buildFormatRetryHint(messageText) {
+  // PATCH: keep HEIC/MOV retry guidance visible even when server error payload is generic
+  const text = String(messageText || "").toLowerCase();
+  const selectedFiles = Object.values(state).filter(Boolean);
+  const hasHeic = /heic|heif/.test(text) || selectedFiles.some((f) => /\.(heic|heif)$/i.test(f.name || ""));
+  const hasMov = /quicktime|\.mov|\bmov\b/.test(text) || selectedFiles.some((f) => /\.mov$/i.test(f.name || ""));
+  const hints = [];
+
+  if (hasHeic) hints.push("HEIC files can be exported as JPG and retried.");
+  if (hasMov) hints.push("MOV files can be exported as MP4 and retried.");
+
+  return hints.length ? ` ${hints.join(" ")}` : "";
+}
+
 function getMissingRequiredConfigs() {
   return uploadsConfig.filter(({ key }) => !state[key]);
 }
@@ -345,9 +359,7 @@ async function submitApplication() {
     const msg = String(error?.message || error || "Unknown upload error");
     // PATCH: keep detailed diagnostics in console while showing friendly UI copy
     console.error("[upload_error]", error);
-    let hint = "";
-    if (/heic|heif/i.test(msg)) hint = " HEIC files can be exported as JPG and retried.";
-    if (/quicktime|\.mov|mov/i.test(msg)) hint = " MOV files can be exported as MP4 and retried.";
+    const hint = buildFormatRetryHint(msg);
     showStatus(`Upload failed. Please retry.${hint}`, true);
   } finally {
     if (applyBtn) applyBtn.disabled = false;
