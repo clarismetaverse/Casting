@@ -1,7 +1,8 @@
 const API = "https://xbut-eryu-hhsg.f2.xano.io/api:-v4TBDCl";
 
 const MAX_IMAGE_SIZE = 15 * 1024 * 1024;
-const MAX_VIDEO_SIZE = 500 * 1024 * 1024;
+const MAX_VIDEO_SOFT_SIZE = 80 * 1024 * 1024;
+const MAX_VIDEO_SIZE = 120 * 1024 * 1024;
 
 // --- UI nodes ---
 const statusNode = document.getElementById("status");
@@ -23,6 +24,12 @@ const gdprBlock = document.getElementById("gdprBlock");
 const consentModal = document.getElementById("consentModal");
 const consentModalClose = document.getElementById("consentModalClose");
 const consentModalAction = document.getElementById("consentModalAction");
+
+const fileLimitModal = document.getElementById("fileLimitModal");
+const fileLimitModalTitle = document.getElementById("fileLimitModalTitle");
+const fileLimitModalBody = document.getElementById("fileLimitModalBody");
+const fileLimitModalClose = document.getElementById("fileLimitModalClose");
+const fileLimitModalAction = document.getElementById("fileLimitModalAction");
 
 // PATCH: startup safety diagnostics for critical nodes
 console.log("Casting form initialized");
@@ -145,9 +152,17 @@ consentModalAction?.addEventListener("click", closeConsentModal);
 consentModal?.addEventListener("click", (event) => {
   if (event.target === consentModal) closeConsentModal();
 });
+fileLimitModalClose?.addEventListener("click", closeFileLimitModal);
+fileLimitModalAction?.addEventListener("click", closeFileLimitModal);
+fileLimitModal?.addEventListener("click", (event) => {
+  if (event.target === fileLimitModal) closeFileLimitModal();
+});
 
 document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape") closeConsentModal();
+  if (event.key === "Escape") {
+    closeConsentModal();
+    closeFileLimitModal();
+  }
 });
 
 ["firstName", "lastName", "email"].forEach((id) => {
@@ -155,7 +170,7 @@ document.addEventListener("keydown", (event) => {
 });
 gdprConsent?.addEventListener("change", () => updateIdleProgress());
 
-function setupDropzone({ inputId, dropzoneId, previewId, key, typeLabel, maxSize }) {
+function setupDropzone({ inputId, dropzoneId, previewId, key, typeLabel, maxSize, kind }) {
   const input = document.getElementById(inputId);
   const dropzone = document.getElementById(dropzoneId);
   const preview = document.getElementById(previewId);
@@ -164,7 +179,7 @@ function setupDropzone({ inputId, dropzoneId, previewId, key, typeLabel, maxSize
 
   input.addEventListener("change", () => {
     if (!input.files?.[0]) return;
-    handleSelectedFile(input.files[0], { key, preview, typeLabel, maxSize, input });
+    handleSelectedFile(input.files[0], { key, preview, typeLabel, maxSize, input, kind });
   });
 
   ["dragenter", "dragover"].forEach((eventName) => {
@@ -184,21 +199,28 @@ function setupDropzone({ inputId, dropzoneId, previewId, key, typeLabel, maxSize
   dropzone.addEventListener("drop", (event) => {
     const [file] = event.dataTransfer.files || [];
     if (!file) return;
-    handleSelectedFile(file, { key, preview, typeLabel, maxSize, input });
+    handleSelectedFile(file, { key, preview, typeLabel, maxSize, input, kind });
   });
 }
 
-function handleSelectedFile(file, { key, preview, typeLabel, maxSize, input }) {
+function handleSelectedFile(file, { key, preview, typeLabel, maxSize, input, kind }) {
   if (file.size > maxSize) {
-    showStatus(`${typeLabel} exceeds size limit (${formatSize(maxSize)}).`, true);
     input.value = "";
+    openFileLimitModal(kind === "video" ? "Video too large" : "Image too large", `Please upload a ${kind || "file"} under ${formatSize(maxSize)}.`);
+    showStatus(`${typeLabel} exceeds size limit (${formatSize(maxSize)}).`, true);
     return;
   }
 
-  // Never block HEIC/MOV, but warn user (soft)
-  const warn = detectSoftFormatWarning(file);
-  if (warn) {
-    showStatus(warn);
+  const warnings = [];
+  if (kind === "video" && file.size > MAX_VIDEO_SOFT_SIZE) {
+    warnings.push(`Large video selected (${formatSize(file.size)}). Upload may take longer on mobile.`);
+  }
+
+  const formatWarn = detectSoftFormatWarning(file);
+  if (formatWarn) warnings.push(formatWarn);
+
+  if (warnings.length) {
+    showStatus(warnings.join(" "));
   } else {
     showStatus(`${typeLabel} ready.`);
   }
@@ -213,10 +235,10 @@ function detectSoftFormatWarning(file) {
   const name = (file.name || "").toLowerCase();
   const type = (file.type || "").toLowerCase();
   if (name.endsWith(".heic") || name.endsWith(".heif") || type.includes("heic") || type.includes("heif")) {
-    return "HEIC/HEIF selected. Upload is allowed; preview may be unavailable in some browsers.";
+    return "HEIC detected. If upload fails, export as JPG and retry.";
   }
   if (name.endsWith(".mov") || type.includes("quicktime")) {
-    return "MOV selected. Upload is allowed; preview may be unavailable in some browsers.";
+    return "MOV detected. Upload may take longer on mobile. If upload fails, export as MP4 and retry.";
   }
   return "";
 }
@@ -258,7 +280,7 @@ function renderPreview(file, preview, typeLabel, key, input) {
     media.replaceWith(
       Object.assign(document.createElement("div"), {
         className: "preview-fallback",
-        textContent: "Preview not available — file ready for upload.",
+        textContent: "Preview not available — file ready to upload.",
       })
     );
   });
@@ -293,6 +315,20 @@ function getIdleProgressPercent() {
 function updateIdleProgress() {
   if (applyBtn?.disabled) return;
   setProgress(getIdleProgressPercent());
+}
+
+function openFileLimitModal(title, body) {
+  if (!fileLimitModal) return;
+  if (fileLimitModalTitle) fileLimitModalTitle.textContent = title || "File too large";
+  if (fileLimitModalBody) fileLimitModalBody.textContent = body || "Please choose a smaller file and try again.";
+  fileLimitModal.classList.remove("hidden");
+  fileLimitModal.setAttribute("aria-hidden", "false");
+}
+
+function closeFileLimitModal() {
+  if (!fileLimitModal) return;
+  fileLimitModal.classList.add("hidden");
+  fileLimitModal.setAttribute("aria-hidden", "true");
 }
 
 function openConsentModal() {
@@ -365,8 +401,8 @@ function buildFormatRetryHint(messageText) {
   const hasMov = /quicktime|\.mov|\bmov\b/.test(text) || selectedFiles.some((f) => /\.mov$/i.test(f.name || ""));
   const hints = [];
 
-  if (hasHeic) hints.push("HEIC files can be exported as JPG and retried.");
-  if (hasMov) hints.push("MOV files can be exported as MP4 and retried.");
+  if (hasHeic) hints.push("Try exporting the image as JPG and upload again.");
+  if (hasMov) hints.push("Try exporting the video as MP4 and upload again.");
 
   return hints.length ? ` ${hints.join(" ")}` : "";
 }
@@ -564,6 +600,7 @@ function resetForm() {
   setProgress(0);
   showStatus("Form reset.");
   closeConsentModal();
+  closeFileLimitModal();
 }
 
 updateIdleProgress();
