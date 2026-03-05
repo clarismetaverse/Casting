@@ -20,6 +20,9 @@ const stepNameNode = document.getElementById("stepName");
 
 const gdprConsent = document.getElementById("gdprConsent");
 const gdprBlock = document.getElementById("gdprBlock");
+const consentModal = document.getElementById("consentModal");
+const consentModalClose = document.getElementById("consentModalClose");
+const consentModalAction = document.getElementById("consentModalAction");
 
 // PATCH: startup safety diagnostics for critical nodes
 console.log("Casting form initialized");
@@ -49,6 +52,9 @@ const state = {
   pola_full: null,
   video_no_makeup: null,
 };
+
+// PATCH: track upload status/progress by file key
+const uploadProgressState = {};
 
 const uploadsConfigNew = [
   {
@@ -133,6 +139,22 @@ gdprConsent?.addEventListener("change", () => {
   gdprBlock?.classList.remove("invalid");
 });
 
+// PATCH: modal handlers for missing GDPR consent
+consentModalClose?.addEventListener("click", closeConsentModal);
+consentModalAction?.addEventListener("click", closeConsentModal);
+consentModal?.addEventListener("click", (event) => {
+  if (event.target === consentModal) closeConsentModal();
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") closeConsentModal();
+});
+
+["firstName", "lastName", "email"].forEach((id) => {
+  document.getElementById(id)?.addEventListener("input", () => updateIdleProgress());
+});
+gdprConsent?.addEventListener("change", () => updateIdleProgress());
+
 function setupDropzone({ inputId, dropzoneId, previewId, key, typeLabel, maxSize }) {
   const input = document.getElementById(inputId);
   const dropzone = document.getElementById(dropzoneId);
@@ -182,7 +204,9 @@ function handleSelectedFile(file, { key, preview, typeLabel, maxSize, input }) {
   }
 
   state[key] = file;
-  renderPreview(file, preview, typeLabel);
+  uploadProgressState[key] = 0;
+  renderPreview(file, preview, typeLabel, key, input);
+  updateIdleProgress();
 }
 
 function detectSoftFormatWarning(file) {
@@ -197,7 +221,7 @@ function detectSoftFormatWarning(file) {
   return "";
 }
 
-function renderPreview(file, preview, typeLabel) {
+function renderPreview(file, preview, typeLabel, key, input) {
   if (!preview) return;
   preview.innerHTML = "";
 
@@ -210,6 +234,16 @@ function renderPreview(file, preview, typeLabel) {
     media.controls = true;
     media.muted = true;
   }
+
+  const removeBtn = document.createElement("button");
+  removeBtn.type = "button";
+  removeBtn.className = "file-remove";
+  removeBtn.setAttribute("aria-label", `Remove ${typeLabel}`);
+  removeBtn.textContent = "×";
+  removeBtn.addEventListener("click", (event) => {
+    event.preventDefault();
+    removeSelectedFile(key, input, preview);
+  });
 
   const meta = document.createElement("div");
   meta.className = "file-meta";
@@ -229,8 +263,56 @@ function renderPreview(file, preview, typeLabel) {
     );
   });
 
-  card.append(media, meta);
+  card.append(media, removeBtn, meta);
   preview.appendChild(card);
+}
+
+
+
+// PATCH: unified file removal behavior
+function removeSelectedFile(key, input, preview) {
+  state[key] = null;
+  uploadProgressState[key] = 0;
+  if (input) input.value = "";
+  if (preview) preview.innerHTML = "";
+  showStatus("File removed.");
+  updateIdleProgress();
+}
+
+function getIdleProgressPercent() {
+  const requiredText = ["firstName", "lastName", "email"];
+  const filledText = requiredText.filter((id) => document.getElementById(id)?.value?.trim()).length;
+  const fileCount = uploadsConfig.length;
+  const selectedFiles = uploadsConfig.filter(({ key }) => !!state[key]).length;
+  const gdprWeight = 1;
+  const totalWeight = requiredText.length + fileCount + gdprWeight;
+  const completeWeight = filledText + selectedFiles + (gdprConsent?.checked ? gdprWeight : 0);
+  return totalWeight ? (completeWeight / totalWeight) * 100 : 0;
+}
+
+function updateIdleProgress() {
+  if (applyBtn?.disabled) return;
+  setProgress(getIdleProgressPercent());
+}
+
+function openConsentModal() {
+  if (!consentModal) return;
+  consentModal.classList.remove("hidden");
+  consentModal.setAttribute("aria-hidden", "false");
+}
+
+function closeConsentModal() {
+  if (!consentModal) return;
+  consentModal.classList.add("hidden");
+  consentModal.setAttribute("aria-hidden", "true");
+}
+
+function getUploadProgressPercent(createProgress = 100) {
+  const active = uploadsConfig.filter(({ key }) => !!state[key]);
+  const uploadPart = active.length
+    ? active.reduce((sum, { key }) => sum + (uploadProgressState[key] || 0), 0) / active.length
+    : 0;
+  return createProgress * 0.25 + uploadPart * 0.75;
 }
 
 function formatSize(bytes) {
@@ -310,6 +392,7 @@ async function submitApplication() {
 
   if (gdprConsent && !gdprConsent.checked) {
     gdprBlock?.classList.add("invalid");
+    openConsentModal();
     showStatus("Please accept GDPR consent before submitting.", true);
     return;
   }
@@ -324,7 +407,7 @@ async function submitApplication() {
     applyBtn.disabled = true;
     applyBtn.textContent = "Submitting...";
   }
-  setProgress(5, "5%");
+  setProgress(5);
 
   try {
     const payload = {
@@ -349,15 +432,19 @@ async function submitApplication() {
     if (!applicationId) throw new Error("Application ID missing from API response.");
 
     const filesToUpload = uploadsConfig.filter(({ key }) => state[key]).map((cfg) => ({ ...cfg, file: state[cfg.key] }));
-    setProgress(25, "25%");
+    setProgress(getUploadProgressPercent(100));
     showStatus("Application created. Uploading files...");
 
-    const uploads = filesToUpload.map((item) => uploadApplicationFile(applicationId, item.key, item.file));
+    const uploads = filesToUpload.map((item) =>
+      uploadApplicationFile(applicationId, item.key, item.file, (progress) => {
+        uploadProgressState[item.key] = progress;
+        setProgress(getUploadProgressPercent(100));
+      })
+    );
 
-    setProgress(55, "55%");
     await Promise.all(uploads);
 
-    setProgress(100, "100%");
+    setProgress(100);
     showSuccessScreen();
   } catch (error) {
     const msg = String(error?.message || error || "Unknown upload error");
@@ -393,9 +480,9 @@ function uploadFileWithProgressWithFallback(applicationId, file, initialFileType
   });
 }
 
-async function uploadApplicationFile(applicationId, fileType, file) {
+async function uploadApplicationFile(applicationId, fileType, file, onProgress) {
   try {
-    await uploadFileWithProgressWithFallback(applicationId, file, fileType);
+    await uploadFileWithProgressWithFallback(applicationId, file, fileType, onProgress);
   } catch (error) {
     const message = String(error?.message || "");
     let maybeErr = null;
@@ -462,6 +549,7 @@ function uploadFileWithProgress(applicationId, file, fileType, onProgress) {
 function resetForm() {
   Object.keys(state).forEach((key) => {
     state[key] = null;
+    uploadProgressState[key] = 0;
   });
 
   uploadsConfig.forEach(({ inputId, previewId }) => {
@@ -473,6 +561,9 @@ function resetForm() {
 
   if (gdprConsent) gdprConsent.checked = false;
   gdprBlock?.classList.remove("invalid");
-  setProgress(0, "0%");
+  setProgress(0);
   showStatus("Form reset.");
+  closeConsentModal();
 }
+
+updateIdleProgress();

@@ -324,3 +324,133 @@ button:disabled {
   background: #111;
   color: white;
 }
+
+
+/* PATCH: clearer in-dropzone upload CTA */
+.upload-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #222;
+}
+
+.upload-plus {
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  border: 1px solid #9a9a9a;
+  display: inline-grid;
+  place-items: center;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.dropzone:focus-within,
+.dropzone:active {
+  border-color: #111;
+  background: #fafafa;
+}
+
+/* PATCH: keep preview card clearly below dropzone */
+.preview {
+  margin-top: -4px;
+}
+
+.file-card {
+  position: relative;
+  padding-right: 42px;
+  overflow: hidden;
+}
+
+.file-remove {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 30px;
+  height: 30px;
+  min-height: 30px;
+  border-radius: 999px;
+  border: 1px solid #d2d2d2;
+  background: #fff;
+  color: #111;
+  font-size: 1.2rem;
+  line-height: 1;
+  padding: 0;
+  display: inline-grid;
+  place-items: center;
+}
+
+.file-remove:hover {
+  opacity: 1;
+  background: #f4f4f4;
+}
+
+.file-meta {
+  min-width: 0;
+}
+
+.file-meta span {
+  overflow-wrap: anywhere;
+}
+
+/* PATCH: consent modal */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  z-index: 1000;
+}
+
+.modal-overlay.hidden {
+  display: none;
+}
+
+.modal {
+  width: min(100%, 420px);
+  background: #fff;
+  border-radius: 12px;
+  padding: 18px;
+  position: relative;
+  display: grid;
+  gap: 12px;
+}
+
+.modal h2,
+.modal p {
+  margin: 0;
+}
+
+.modal-close {
+  position: absolute;
+  right: 10px;
+  top: 10px;
+  width: 36px;
+  height: 36px;
+  min-height: 36px;
+  border-radius: 999px;
+  background: #f2f2f2;
+  color: #111;
+  font-size: 1.4rem;
+  padding: 0;
+}
+
+@media (max-width: 679px) {
+  .progress-wrap {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+  }
+
+  .file-remove {
+    width: 36px;
+    height: 36px;
+    min-height: 36px;
+    font-size: 1.35rem;
+  }
+}
