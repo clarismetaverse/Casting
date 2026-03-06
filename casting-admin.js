@@ -188,9 +188,7 @@ async function init() {
     renderCandidates(groupedCandidates);
   } catch (error) {
     console.error(error);
-    const groupedCandidates = groupFilesByApplication(MOCK_APPLICATION_FILES);
-    statusNode.textContent = "API unavailable. Showing mock application data.";
-    renderCandidates(groupedCandidates);
+
   }
 }
 
