@@ -435,14 +435,7 @@ async function submitApplication() {
       throw new Error(applyData?.message || `Failed to create application (${applyResponse.status}).`);
     }
 
-    const applicationId =
-      applyData?.id ||
-      applyData?.applications_id ||
-      applyData?.application_id ||
-      applyData?.data?.id ||
-      applyData?.data?.applications_id ||
-      applyData?.data?.application_id ||
-      null;
+    const applicationId = applyData?.id ?? applyData?.applications_id ?? applyData?.application_id ?? applyData?.data?.id ?? null;
 
     if (!applicationId) {
       console.error("[apply_unexpected_response_shape]", applyData);
