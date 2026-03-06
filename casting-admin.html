@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Casting Admin</title>
+    <link rel="stylesheet" href="casting-admin.css" />
+  </head>
+  <body>
+    <main class="casting-admin" aria-live="polite">
+      <header class="casting-admin__header">
+        <p class="kicker">Casting management</p>
+        <h1>Applications</h1>
+        <p class="subtitle">Read-only display grouped by application ID.</p>
+      </header>
+
+      <section id="adminStatus" class="admin-status">Loading applications…</section>
+      <section id="candidateGrid" class="candidate-grid" aria-label="Candidate applications"></section>
+    </main>
+
+    <dialog id="imagePreview" class="preview-modal">
+      <button id="closePreview" class="preview-close" type="button" aria-label="Close preview">×</button>
+      <img id="previewImg" alt="Selected candidate image preview" />
+    </dialog>
+
+    <script src="casting-admin.js"></script>
+  </body>
+</html>
