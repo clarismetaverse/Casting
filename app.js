@@ -1,8 +1,6 @@
 const API = "https://xbut-eryu-hhsg.f2.xano.io/api:-v4TBDCl";
 
 const MAX_IMAGE_SIZE = 15 * 1024 * 1024;
-const MAX_VIDEO_SOFT_SIZE = 80 * 1024 * 1024;
-const MAX_VIDEO_SIZE = 120 * 1024 * 1024;
 
 // --- UI nodes ---
 const statusNode = document.getElementById("status");
@@ -37,11 +35,10 @@ console.log("[sanity] applyBtn:", !!applyBtn);
 console.log("[sanity] progressBar:", !!progressBar);
 console.log("[sanity] progressText/progressLabel:", !!progressText);
 console.log("[sanity] gdprConsent:", !!gdprConsent);
-console.log("[sanity] 4-upload inputs:", {
+console.log("[sanity] required photo inputs:", {
   polaFrontFile: !!document.getElementById("polaFrontFile"),
   polaSideFile: !!document.getElementById("polaSideFile"),
   polaFullFile: !!document.getElementById("polaFullFile"),
-  videoNoMakeupFile: !!document.getElementById("videoNoMakeupFile"),
 });
 
 // --- helpers: read optional user_turbo_id from URL ---
@@ -57,7 +54,6 @@ const state = {
   pola_front: null,
   pola_side: null,
   pola_full: null,
-  video_no_makeup: null,
 };
 
 // PATCH: track upload status/progress by file key
@@ -91,15 +87,6 @@ const uploadsConfigNew = [
     maxSize: MAX_IMAGE_SIZE,
     kind: "image",
   },
-  {
-    key: "video_no_makeup",
-    inputId: "videoNoMakeupFile",
-    dropzoneId: "videoNoMakeupDropzone",
-    previewId: "videoNoMakeupPreview",
-    typeLabel: "Video — No makeup",
-    maxSize: MAX_VIDEO_SIZE,
-    kind: "video",
-  },
 ];
 
 const uploadsConfigOld = [
@@ -111,15 +98,6 @@ const uploadsConfigOld = [
     typeLabel: "Polaroid",
     maxSize: MAX_IMAGE_SIZE,
     kind: "image",
-  },
-  {
-    key: "video_no_makeup",
-    inputId: "videoFile",
-    dropzoneId: "videoDropzone",
-    previewId: "videoPreview",
-    typeLabel: "Video",
-    maxSize: MAX_VIDEO_SIZE,
-    kind: "video",
   },
 ];
 
@@ -212,9 +190,6 @@ function handleSelectedFile(file, { key, preview, typeLabel, maxSize, input, kin
   }
 
   const warnings = [];
-  if (kind === "video" && file.size > MAX_VIDEO_SOFT_SIZE) {
-    warnings.push(`Large video selected (${formatSize(file.size)}). Upload may take longer on mobile.`);
-  }
 
   const formatWarn = detectSoftFormatWarning(file);
   if (formatWarn) warnings.push(formatWarn);
@@ -236,9 +211,6 @@ function detectSoftFormatWarning(file) {
   const type = (file.type || "").toLowerCase();
   if (name.endsWith(".heic") || name.endsWith(".heif") || type.includes("heic") || type.includes("heif")) {
     return "HEIC detected. If upload fails, export as JPG and retry.";
-  }
-  if (name.endsWith(".mov") || type.includes("quicktime")) {
-    return "MOV detected. Upload may take longer on mobile. If upload fails, export as MP4 and retry.";
   }
   return "";
 }
@@ -385,7 +357,6 @@ const FILE_TYPE_FALLBACKS = {
   pola_front: "pola_full",
   pola_side: "pola_side",
   pola_full: "pola_full",
-  video_no_makeup: "video",
 };
 
 function isEnumInputError(message) {
@@ -394,15 +365,13 @@ function isEnumInputError(message) {
 }
 
 function buildFormatRetryHint(messageText) {
-  // PATCH: keep HEIC/MOV retry guidance visible even when server error payload is generic
+  // PATCH: keep HEIC retry guidance visible even when server error payload is generic
   const text = String(messageText || "").toLowerCase();
   const selectedFiles = Object.values(state).filter(Boolean);
   const hasHeic = /heic|heif/.test(text) || selectedFiles.some((f) => /\.(heic|heif)$/i.test(f.name || ""));
-  const hasMov = /quicktime|\.mov|\bmov\b/.test(text) || selectedFiles.some((f) => /\.mov$/i.test(f.name || ""));
   const hints = [];
 
   if (hasHeic) hints.push("Try exporting the image as JPG and upload again.");
-  if (hasMov) hints.push("Try exporting the video as MP4 and upload again.");
 
   return hints.length ? ` ${hints.join(" ")}` : "";
 }
@@ -462,10 +431,24 @@ async function submitApplication() {
     });
     const applyData = await safeJson(applyResponse);
     if (!applyResponse.ok) {
+      console.error("[apply_error_response]", applyData);
       throw new Error(applyData?.message || `Failed to create application (${applyResponse.status}).`);
     }
-    const applicationId = applyData?.id || applyData?.application_id;
-    if (!applicationId) throw new Error("Application ID missing from API response.");
+
+    const applicationId =
+      applyData?.id ||
+      applyData?.applications_id ||
+      applyData?.application_id ||
+      applyData?.data?.id ||
+      applyData?.data?.applications_id ||
+      applyData?.data?.application_id ||
+      null;
+
+    if (!applicationId) {
+      console.error("[apply_unexpected_response_shape]", applyData);
+      showStatus("Application created, but no application ID was returned. Please retry or contact support.", true);
+      return;
+    }
 
     const filesToUpload = uploadsConfig.filter(({ key }) => state[key]).map((cfg) => ({ ...cfg, file: state[cfg.key] }));
     setProgress(getUploadProgressPercent(100));
@@ -497,9 +480,13 @@ async function submitApplication() {
 }
 
 async function safeJson(res) {
+  const text = await res.text();
+  if (!text) return null;
+
   try {
-    return await res.json();
-  } catch {
+    return JSON.parse(text);
+  } catch (error) {
+    console.warn("[safe_json_parse_failed]", { status: res.status, body: text, error });
     return null;
   }
 }

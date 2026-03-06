@@ -14,7 +14,9 @@
 
         <h2>Application received</h2>
 
-        <p class="success-main">Your application has been successfully submitted.</p>
+        <p class="success-main">
+          Your application has been received. Shortlisted applicants may be invited to submit a short introduction video in the next review stage.
+        </p>
 
         <p class="success-sub">Check your email for confirmation and next steps.</p>
 
@@ -74,14 +76,6 @@
         </label>
         <div class="preview" id="polaFullPreview"></div>
 
-        <!-- Video: NO MAKEUP -->
-        <label class="dropzone" id="videoNoMakeupDropzone" for="videoNoMakeupFile" data-kind="video_no_makeup">
-          <span class="upload-cta" aria-hidden="true"><span class="upload-plus">+</span><span>Click to upload</span></span>
-          <span class="dropzone-title">Video — No makeup</span>
-          <span class="dropzone-hint">10–20s, say your name + age. Good light, steady shot.</span>
-          <input type="file" id="videoNoMakeupFile" accept="video/*,.mov" />
-        </label>
-        <div class="preview" id="videoNoMakeupPreview"></div>
       </section>
 
       <!-- GDPR thick toggle -->
@@ -101,6 +95,8 @@
         <button id="applyBtn" type="button">Submit application</button>
         <button id="resetBtn" type="button">Reset</button>
       </div>
+
+      <p class="stage-note">Selected applicants may be invited to submit a short introduction video during the next review stage.</p>
 
       <p class="status" id="status" role="status"></p>
     </main>
