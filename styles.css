@@ -189,6 +189,13 @@ button:disabled {
   gap: 10px;
 }
 
+.stage-note {
+  margin: -2px 0 2px;
+  font-size: 0.86rem;
+  color: #5d5d5d;
+  line-height: 1.35;
+}
+
 .gdpr {
   border: 1px solid #d9d9d9;
   border-radius: 12px;
