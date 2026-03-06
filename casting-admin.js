@@ -53,8 +53,7 @@ const previewImg = document.getElementById("previewImg");
 const closePreview = document.getElementById("closePreview");
 
 async function loadApplicationFiles() {
-  return MOCK_APPLICATION_FILES;
-}
+
 
 function groupFilesByApplication(fileRecords) {
   const grouped = new Map();
@@ -171,7 +170,7 @@ async function init() {
     renderCandidates(groupedCandidates);
   } catch (error) {
     console.error(error);
-    statusNode.textContent = "Failed to load applications.";
+
   }
 }
 
