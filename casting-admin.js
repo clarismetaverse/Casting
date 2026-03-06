@@ -1,5 +1,4 @@
 const XANO_BASE_URL = "https://xbut-eryu-hhsg.f2.xano.io";
-const APPLICATION_FILES_ENDPOINT = `${XANO_BASE_URL}/api:vGd6XDW3/application_files`;
 
 // Keep data loading isolated so replacing with a real API call is low-impact later.
 const MOCK_APPLICATION_FILES = [
@@ -54,24 +53,7 @@ const previewImg = document.getElementById("previewImg");
 const closePreview = document.getElementById("closePreview");
 
 async function loadApplicationFiles() {
-  const response = await fetch(APPLICATION_FILES_ENDPOINT, {
-    method: "GET",
-    headers: {
-      Accept: "application/json",
-    },
-  });
 
-  if (!response.ok) {
-    throw new Error(`Failed to fetch application files (${response.status})`);
-  }
-
-  const payload = await response.json();
-  if (!Array.isArray(payload)) {
-    throw new Error("Unexpected application files response format");
-  }
-
-  return payload;
-}
 
 function groupFilesByApplication(fileRecords) {
   const grouped = new Map();
@@ -188,9 +170,7 @@ async function init() {
     renderCandidates(groupedCandidates);
   } catch (error) {
     console.error(error);
-    const groupedCandidates = groupFilesByApplication(MOCK_APPLICATION_FILES);
-    statusNode.textContent = "API unavailable. Showing mock application data.";
-    renderCandidates(groupedCandidates);
+
   }
 }
 
