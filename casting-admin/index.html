@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Casting Admin</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="page" aria-live="polite">
+      <header class="page-header">
+        <p class="eyebrow">Casting management</p>
+        <h1>Applications</h1>
+        <p class="subtitle">Read-only display grouped by application ID.</p>
+      </header>
+
+      <p id="status" class="status">Loading applications…</p>
+      <section id="grid" class="grid" aria-label="Grouped applications"></section>
+    </main>
+
+    <dialog id="lightbox" class="lightbox">
+      <button id="lightboxClose" class="lightbox-close" type="button" aria-label="Close">×</button>
+      <img id="lightboxImage" alt="Application preview" />
+    </dialog>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
